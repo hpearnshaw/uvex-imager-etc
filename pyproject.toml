@@ -1,0 +1,45 @@
+[build-system]
+requires = [
+  "setuptools>=62.1",
+  "setuptools_scm[toml]>=8.0.0",
+  "wheel",]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "uvex_imager_etc"
+description = "Repository for the UVEX imager ETC."
+requires-python = ">=3.12"
+readme = "README.md"
+license = { text = "MIT License" }
+authors = [
+  { name = "Hannah Earnshaw", email = "hpearn@caltech.edu" },
+]
+dependencies = [
+"numpy",
+"astropy",
+"synphot",
+"matplotlib",
+"scipy",
+"jupyter"
+]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+test = [
+    "pytest",
+    "pytest-doctestplus",
+    "pytest-cov",
+]
+docs = [
+    "sphinx",
+    "sphinx-automodapi",
+]
+
+[tool.setuptools]
+zip-safe = false
+include-package-data = true
+
+[tool.setuptools.packages.find]
+
+[tool.setuptools_scm]
+version_file = "uvex_imager_etc/_version.py"
