@@ -54,6 +54,7 @@ class ETC():
         # Ingest sources
         if source is not None:
             if isinstance(source, u.quantity.Quantity):
+                # Source is provided as a quantity - treat as a flat spectrum
                 # TODO: Add capacity to generate a range of spectrum types for given magnitudes
                 if len(source) == 1:
                     self.source = [SourceSpectrum(ConstFlux1D, amplitude=source)]
@@ -73,8 +74,7 @@ class ETC():
             else:
                 raise ValueError("Source must be a flux Quantity or synphot SourceSpectrum (or list thereof)")
         else:
-            # If a source isn't provided then do we want some default source?
-            print('No source provided')
+            # No need to define a source for limiting magnitude calculations
             self.source = None
         
         # Set source locations (used for calculating background)
@@ -120,9 +120,18 @@ class ETC():
         self.background_count_rate = {}
         
         # TODO: Add functionality to switch certain background effects on and off
-        # Dark current, sky components, Cherenkov, scattered light
+        # Dark current, sky components, Cherenkov, scattered light?
 
     # Functions
+    def get_info(self):
+        '''
+            Returns current information about ETC setup
+        '''
+        print(f'UVEX version: {self.telescope.get_caldb()}')
+        print(f'Source: SOMETHING ABOUT SOURCE TYPE HERE')
+        print(f'Source position: {self.coord}')
+        print(f'Observation time: {self.obstime}')
+    
     def _calc_source_count_rate(self):
         '''
             Calculate and set the count rate for all sources
@@ -144,9 +153,32 @@ class ETC():
         # Calculate backgrounds
         self.background_count_rate['nuv'] = backgrounds.make_nuv_background(self.telescope, self.coord, self.obstime)
         self.background_count_rate['fuv'] = backgrounds.make_fuv_background(self.telescope, self.coord, self.obstime)
+        
+    def _req_source(self, k, exposure, bgd_rate, read_noise, neff):
+        """
+        Isolate source flux to get at least SNR of k in exposure seconds
+
+        Parameters
+        -----------
+
+        k : float
+            Desired SNR
+        exposure: float
+            Exposure in seconds
+        bgd_rate : float
+            Combined sky and dark current
+        read_noise : float
+            Read noise per pixel
+        neff : float
+            Effective number of pixels
+        """
+        c = neff * k**2 * (read_noise**2 + exposure*(bgd_rate))
+        source =  (k**2 + np.sqrt(k**4 + 4*c))/ (2*exposure)
+        return source * u.ct / u.s
 
     def get_snr(self, exptime=None, n_frames=None, n_dwells=None, band='nuv'):
-        """Calculate the SNR of an observation of a point source with UVEX.
+        """
+        Calculate the SNR of an observation of a point source with UVEX.
 
         Parameters
         ----------
@@ -159,7 +191,7 @@ class ETC():
         n_dwells : int
             Sets exptime and n_frames to a specific number of dwells
             exptime and n_frame inputs are ignored in this case
-            Dwells are defined as 3 x 300s NUV exposures or 1 x 900s FUV exposure
+            Dwells are defined using ETC properties
         
         band : 'nuv' or 'fuv'
             The UVEX band in which to calculate SNR
@@ -176,11 +208,11 @@ class ETC():
         
         if n_dwells is not None:
             if band == 'nuv':
-                exptime = 300 * u.s
-                n_frames = 3
+                exptime = self.nuv_exposure
+                n_frames = self.n_nuv * n_dwells
             elif band == 'fuv':
-                exptime = 900 * u.s
-                n_frames = 1
+                exptime = self.fuv_exposure
+                n_frames = self.n_fuv * n_dwells
         else:
             if not isinstance(exptime, u.quantity.Quantity):
                 raise ValueError("Exptime must be a Quantity.")
@@ -205,16 +237,89 @@ class ETC():
             dark_eps=dark_current.value,
             rd=read_noise.value,
             npix=npix,
-            gain=1.
-        )
+            gain=1.)
         snr *= np.sqrt(n_frames)
     
         return snr
+    
+    
+    def get_limiting_mag(self, snr=5., exptime=None, n_frames=None, n_dwells=None, band='nuv'):
+        """
+        Get the limiting magnitude at a certain location and time for given SNR and exposure
         
+        Does not require any source information to be loaded
+
+        Parameters
+        ----------
+        snr : float
+            Desired signal-to-noise ratio
+        
+        exptime : Quantity
+            Exposure time
+        
+        n_frames : int
+            Number of exposures added together
+            
+        n_dwells : int
+            Sets exptime and n_frames to a specific number of dwells
+            exptime and n_frame inputs are ignored in this case
+            Dwells are defined using ETC properties
+        
+        band : 'nuv' or 'fuv'
+            The UVEX band in which to calculate SNR
+        
+        Returns
+        -------
+        float
+            The limiting magnitude for each position
+        """
+        # Determine inputs
+        band = band.lower()
+        if not ((band == 'nuv') | (band == 'fuv')):
+            raise ValueError(f"band must be 'nuv' or 'fuv'; got {band}")
+        
+        if n_dwells is not None:
+            if band == 'nuv':
+                exptime = self.nuv_exposure
+                n_frames = self.n_nuv * n_dwells
+                bandpass = self.telescope.nuv_bandpass
+            elif band == 'fuv':
+                exptime = self.fuv_exposure
+                n_frames = self.n_fuv * n_dwells
+                bandpass = self.telescope.fuv_bandpass
+        else:
+            if not isinstance(exptime, u.quantity.Quantity):
+                raise ValueError("Exptime must be a Quantity.")
+            if not isinstance(n_frames, int):
+                raise ValueError("n_frames must be a positive integer.")
+        
+        # Load appropriate read noise and dark current from telescope
+        dark_current = self.telescope.DARK_CURRENT[band].value
+        read_noise = self.telescope.READ_NOISE[band].value
+        npix = self.telescope.NPIX
+        
+        # Trigger generation of count rates if necessary
+        if band not in self.background_count_rate: self._calc_background_count_rate()
+        
+        # Get reference count rate
+        m_ref = 22*u.ABmag
+        sp = SourceSpectrum(ConstFlux1D, amplitude=m_ref)
+        obs_band = Observation(sp, bandpass)
+        ref_rate = obs_band.countrate(area=self.telescope.AREA)
+        
+        # Get the required source rate per exposure
+        per_exp_snr = snr/np.sqrt(n_frames)
+        req_rate = self._req_source(per_exp_snr, exptime.to(u.s).value,
+                                    self.background_count_rate[band].value + dark_current,
+                                    read_noise, npix)
+        ratio = req_rate / ref_rate
+        m_limit = m_ref - (2.5*np.log10(ratio))*u.mag
+        
+        return m_limit
+    
     
     # TODO: more ETC calculations
     # Get exposure time and/or number of dwells (for given SNR)
-    # Get limiting mag (either exposure time * frames or n_dwells)
     
     # TODO: setters for ETC setup (reset source/bg rates as required)
     # Set source (reset source and background count rates)

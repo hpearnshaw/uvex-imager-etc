@@ -2,7 +2,9 @@ import os
 import json
 import numpy as np
 from numpy import pi as PI
+import warnings
 
+from astropy.time import Time
 import astropy.units as u
 
 from synphot import Empirical1D, SpectralElement
@@ -25,14 +27,20 @@ class UVEX():
     def __init__(self, caldb=None):
     
         # Check for existence of CALDBs
-        avail_caldb = [f for f in os.listdir(response_files_dir) if not f.startswith('.')]
+        avail_caldb = np.array([f for f in os.listdir(response_files_dir) if not f.startswith('.')])
         if len(avail_caldb) == 0:
             raise ValueError("No available CALDBs in response_files.")
         
         # Define CALDB we are using
         if caldb is None:
-            # TODO: code to get latest version
-            self.caldb = '20260723_v0.1a'
+            latest = max(Time([c[:4]+'-'+c[4:6]+'-'+c[6:8] for c in avail_caldb])).iso
+            latest_option = [latest[:4]+latest[5:7]+latest[8:10] in c for c in avail_caldb]
+            if np.sum(latest_option) == 1:
+                self.caldb = avail_caldb[latest_option]
+            else:
+                versions = [c[9:] for c in avail_caldb[latest_option]]
+                self.caldb = avail_caldb[latest_option][np.argmax(versions)]
+                warnings.warn(f"Multiple CALDBs available for {latest}; using {self.caldb}")
         else:
             if caldb not in avail_caldb:
                 raise ValueError(f"CALDB version {caldb} not available in response_files.")
@@ -70,14 +78,22 @@ class UVEX():
         self.fuv_bandpass = SpectralElement(Empirical1D,
                                             points = fuv_data[:,0], lookup_table = fuv_data[:,1])
         
-        # Placeholder values
-        # TODO: get actual Cherenkov bandpasses from uvex-response
+        # Cherenkov passes for background contribution
+        nuv_cherenkov_data = np.genfromtxt(os.path.join(caldb_dir, 'nuv_cherenkov_bandpass.txt'))
         self.nuv_cherenkov_bandpass = SpectralElement(Empirical1D,
-                                            points = nuv_data[:,0], lookup_table = nuv_data[:,1]/100.)
+                                            points = nuv_cherenkov_data[:,0], lookup_table = nuv_cherenkov_data[:,1])
+        fuv_cherenkov_data = np.genfromtxt(os.path.join(caldb_dir, 'fuv_cherenkov_bandpass.txt'))
         self.fuv_cherenkov_bandpass = SpectralElement(Empirical1D,
-                                            points = fuv_data[:,0], lookup_table = fuv_data[:,1]/100.)
+                                            points = fuv_cherenkov_data[:,0], lookup_table = fuv_cherenkov_data[:,1])
+        
         # Other background-related bandpasses as needed
 
     @property
     def AREA(self):
+        '''
+        Returns telescope area as calculated from EPD
+        '''
         return PI * (self.EPD*0.5)**2
+    
+    def get_caldb(self):
+        return self.caldb
