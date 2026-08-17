@@ -9,9 +9,9 @@ Ultraviolet Explorer (UVEX) Imager Exposure Time Calculator
 Overview
 --------
 
-This is the exposure time calculator for the UVEX imagers.
+This is the exposure time calculator for the UVEX imagers. WORK IN PROGRESS, NOT YET FUNCTIONAL
 
-Dependecies
+Dependencies
 ------------
 
 We require at least python 3.12 for this installation. We'll assume for the installation 
