@@ -85,11 +85,11 @@ class ETC():
         if coordinate is not None:
             if not isinstance(coordinate, SkyCoord):
                 raise ValueError("Coordinate must be a `SkyCoord` object.")
-            if (len(coordinate) > 1) & (self.n_source > 1):
-                if len(coordinate) != self.n_source:
+            if (coordinate.size > 1) & (self.n_source > 1):
+                if coordinate.size != self.n_source:
                     raise ValueError("Length of coordinate must match number of sources.")
             self.coord = coordinate
-            self.n_coord = len(coordinate)
+            self.n_coord = coordinate.size
         else:
             # Default 'average' location 15-deg out of Galactic Plane
             self.coord = SkyCoord(120., 15., unit=u.deg, frame='galactic')
@@ -99,11 +99,11 @@ class ETC():
         if obstime is not None:
             if not isinstance(obstime, Time):
                 raise ValueError("Obstime must be a `Time` object.")
-            elif (len(obstime) > 1) and (len(obstime) != self.n_coord):
+            elif obstime.size > 1 and (obstime.size != self.n_coord):
                 raise ValueError("Length of obstime must be 1 or equal to length of coordinate.")
-            elif len(obstime) == self.n_coord:
+            elif obstime.size == self.n_coord:
                 self.obstime = obstime
-            elif len(obstime) == 1:
+            elif obstime.size == 1:
                 time = obstime * self.n_coord
                 self.obstime = Time(time, scale='utc', format='iso')
         else:
@@ -132,7 +132,9 @@ class ETC():
             Returns current information about ETC setup
         '''
         print(f'UVEX version: {self.telescope.get_caldb()}')
-        print(f'Source: {self.source_info}')
+        if self.n_source > 1: n_s = f' x {self.n_source}'
+        else: n_s = ''
+        print(f'Source: {self.source_info}{n_s}')
         print(f'Source position: {self.coord}')
         print(f'Observation time: {self.obstime}')
     
