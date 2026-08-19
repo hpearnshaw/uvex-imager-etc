@@ -255,7 +255,6 @@ def make_galactic_spec(uvex, lat, band):
         warnings.warn("Galactic background invalid for observations in the plane")
     
     # Get the scaling for each latitude
-    if lat.size == 1: lat = np.array([lat.deg])*u.deg
     south = lat < -0*u.deg
     north = lat >= 0*u.deg
 
@@ -300,13 +299,11 @@ def make_zodi_spec(uvex, coord, obstime):
     target = coord.transform_to(GeocentricTrueEcliptic(equinox=obstime))
     
     lat = np.abs(target.lat.deg)
-    if lat.size == 1: lat = np.array([lat])
     high_lat = lat > 75
     low_lat = lat <= 75
     
     # Compute longitude wrt the sun:
     lon = np.abs((target.lon - sun.lon).wrap_at(180 * u.deg).deg)
-    if lon.size == 1: lon = np.array([lon])
     
     # Set Zodi scaling
     zodi_model = load_zodi_spatial()

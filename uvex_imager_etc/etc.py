@@ -99,6 +99,20 @@ class ETC():
         print(f'Source position: {self.coord}')
         print(f'Observation time: {self.obstime}')
     
+    def get_source_count_rate(self, band='nuv'):
+        '''
+            Returns source count rate in given band
+        '''
+        if band not in self.source_count_rate: self._calc_source_count_rate()
+        return self.source_count_rate[band]
+    
+    def get_background_count_rate(self, band='nuv'):
+        '''
+            Returns source count rate in given band
+        '''
+        if band not in self.background_count_rate: self._calc_background_count_rate()
+        return self.background_count_rate[band]
+    
     def _calc_source_count_rate(self):
         '''
             Calculate and set the count rate for all sources
@@ -120,7 +134,7 @@ class ETC():
         # Calculate backgrounds
         self.background_count_rate['nuv'] = backgrounds.make_nuv_background(self.telescope, self.coord, self.obstime)
         self.background_count_rate['fuv'] = backgrounds.make_fuv_background(self.telescope, self.coord, self.obstime)
-        
+    
     def _req_source(self, k, exposure, bgd_rate, read_noise, neff):
         """
         Isolate source flux to get at least SNR of k in exposure seconds
@@ -273,15 +287,16 @@ class ETC():
         if not ((band == 'nuv') | (band == 'fuv')):
             raise ValueError(f"band must be 'nuv' or 'fuv'; got {band}")
         
+        if band == 'nuv': bandpass = self.telescope.nuv_bandpass
+        elif band == 'fuv': bandpass = self.telescope.fuv_bandpass
+        
         if n_dwells is not None:
             if band == 'nuv':
-                exposure = self.nuv_exposure
+                exptime = self.nuv_exposure
                 n_frames = self.n_nuv * n_dwells
-                bandpass = self.telescope.nuv_bandpass
             elif band == 'fuv':
-                exposure = self.fuv_exposure
+                exptime = self.fuv_exposure
                 n_frames = self.n_fuv * n_dwells
-                bandpass = self.telescope.fuv_bandpass
         else:
             if not isinstance(exptime, u.quantity.Quantity):
                 raise ValueError("Exptime must be a Quantity.")
@@ -304,7 +319,7 @@ class ETC():
         
         # Get the required source rate per exposure
         per_exp_snr = snr/np.sqrt(n_frames)
-        req_rate = self._req_source(per_exp_snr, exposure.to(u.s).value,
+        req_rate = self._req_source(per_exp_snr, exptime.to(u.s).value,
                                     self.background_count_rate[band].value + dark_current,
                                     read_noise, npix)
         ratio = req_rate / ref_rate
@@ -426,7 +441,7 @@ class ETC():
                 if (self.n_obstime > 1) and (self.n_obstime != self.n_source):
                     warnings.warn("Incompatible number of obs times for this number of sources; resetting to default obs times")
                     self.set_obstime(self.default_obstime, regen=False)
-            self.source_info = f'Constant spectrum at {source:.2f}'
+            self.source_info = f'Constant spectrum at {source}'
         elif isinstance(source, SourceSpectrum):
             # Directly assign the spectrum
             self.source = [source]
