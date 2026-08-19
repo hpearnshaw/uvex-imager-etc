@@ -46,14 +46,16 @@ def make_nuv_background(uvex, coord, obstime, diag=False):
     galactic_spec = make_galactic_spec(uvex, gal_coord.b, 'nuv')
     
     zodi_rate, gal_rate = np.array([]) * u.ct / u.s, np.array([]) * u.ct / u.s
-    if coord.size == 1: coord = [coord]
-    for i, c in enumerate(coord):
+    n_back = np.maximum(coord.size, obstime.size)
+    for i in range(n_back):
         # TODO: Make this more efficient
         nuv_zodi = Observation(zodi_spec[i], nuv_band)
-        nuv_galactic = Observation(galactic_spec[i], nuv_band)
-        
         zodi_rate = np.append(zodi_rate, nuv_zodi.countrate(area=uvex.AREA))
-        gal_rate = np.append(gal_rate, nuv_galactic.countrate(area=uvex.AREA))
+        
+        if i < coord.size:
+            # Only generate multiple gal_rate if multiple coordinates are present
+            nuv_galactic = Observation(galactic_spec[i], nuv_band)
+            gal_rate = np.append(gal_rate, nuv_galactic.countrate(area=uvex.AREA))
     
     # Response to Cherenkov photons
     wave = np.arange(1000, 10000) * u.AA
@@ -101,8 +103,6 @@ def make_fuv_background(uvex, coord, obstime, diag=False):
     """
     fuv_band = uvex.fuv_bandpass
     
-    # TODO: add ghosting response
-    
     sky_coord = coord.icrs
     gal_coord = coord.galactic
     
@@ -114,14 +114,16 @@ def make_fuv_background(uvex, coord, obstime, diag=False):
     galactic_spec = make_galactic_spec(uvex, gal_coord.b, 'fuv')
     
     zodi_rate, gal_rate = np.array([]) * u.ct / u.s, np.array([]) * u.ct / u.s
-    if coord.size == 1: coord = [coord]
-    for i, c in enumerate(coord):
+    n_back = np.maximum(coord.size, obstime.size)
+    for i in range(n_back):
         # TODO: Make this more efficient
         fuv_zodi = Observation(zodi_spec[i], fuv_band, force='extrap')
-        fuv_galactic = Observation(galactic_spec[i], fuv_band)
-        
         zodi_rate = np.append(zodi_rate, fuv_zodi.countrate(area=uvex.AREA))
-        gal_rate = np.append(gal_rate, fuv_galactic.countrate(area=uvex.AREA))
+
+        if i < coord.size:
+            # Only generate multiple gal_rate if multiple coordinates are present
+            fuv_galactic = Observation(galactic_spec[i], fuv_band)
+            gal_rate = np.append(gal_rate, fuv_galactic.countrate(area=uvex.AREA))
     
     # Response to Cherenkov photons
     wave = np.arange(1000, 10000) * u.AA

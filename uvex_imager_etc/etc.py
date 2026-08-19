@@ -1,4 +1,5 @@
 import numpy as np
+import warnings
 
 import astropy.units as u
 from astropy.time import Time
@@ -23,6 +24,7 @@ class ETC():
         
         obstime : Time
             Time of observation for each source
+            Defaults to arbitrary time of 2030-06-01 09:00:00
         
         source : Quantity or SourceSpectrum
             Source magnitude/flux as Quantity or a synphot SourceSpectrum object
@@ -50,74 +52,33 @@ class ETC():
         self.fuv_exposure = 900*u.s
         self.n_nuv = 3
         self.n_fuv = 1
+        self.default_coord = SkyCoord(120., 15., unit=u.deg, frame='galactic')
+        self.default_obstime = Time('2030-06-01 09:00:00', scale='utc', format='iso')
+        
+        # Initialize input counts
+        self.n_source = 0
+        self.n_coord = 0
+        self.n_obstime = 0
         
         # Ingest sources
         if source is not None:
-            if isinstance(source, u.quantity.Quantity):
-                # Source is provided as a quantity - treat as a flat spectrum
-                # TODO: Add capacity to generate a range of spectrum types for given magnitudes
-                if len(source) == 1:
-                    self.source = [SourceSpectrum(ConstFlux1D, amplitude=source)]
-                    self.n_source = 1
-                else:
-                    self.source = [SourceSpectrum(ConstFlux1D, amplitude=s) for s in source]
-                    self.n_source = len(source)
-                self.source_info = f'Constant spectrum at {source:.2f}'
-            elif isinstance(source, SourceSpectrum):
-                # Directly assign the spectrum
-                self.source = [source]
-                self.n_source = 1
-                self.source_info = 'User-defined spectrum'
-            elif isinstance(source, list) | isinstance(source, np.ndarray):
-                if isinstance(source[0], SourceSpectrum):
-                    # Directly assign list/array of spectra
-                    self.source = source
-                    self.n_source = len(source)
-                self.source_info = 'User-defined spectra'
-            else:
-                raise ValueError("Source must be a flux Quantity or synphot SourceSpectrum (or list thereof)")
+            self.set_source(source, regen=False)
         else:
             # No need to define a source for limiting magnitude calculations
             self.source = None
             self.source_info = 'None'
         
         # Set source locations (used for calculating background)
-        if coordinate is not None:
-            if not isinstance(coordinate, SkyCoord):
-                raise ValueError("Coordinate must be a `SkyCoord` object.")
-            if (coordinate.size > 1) & (self.n_source > 1):
-                if coordinate.size != self.n_source:
-                    raise ValueError("Length of coordinate must match number of sources.")
-            self.coord = coordinate
-            self.n_coord = coordinate.size
-        else:
-            # Default 'average' location 15-deg out of Galactic Plane
-            self.coord = SkyCoord(120., 15., unit=u.deg, frame='galactic')
-            self.n_coord = 1
+        # Default 'average' location 15-deg out of Galactic Plane
+        if coordinate is None: coordinate = self.default_coord
+        self.set_coord(coordinate, regen=False)
         
         # Set the observation times (used for calculating background)
-        if obstime is not None:
-            if not isinstance(obstime, Time):
-                raise ValueError("Obstime must be a `Time` object.")
-            elif obstime.size > 1 and (obstime.size != self.n_coord):
-                raise ValueError("Length of obstime must be 1 or equal to length of coordinate.")
-            elif obstime.size == self.n_coord:
-                self.obstime = obstime
-            elif obstime.size == 1:
-                time = obstime * self.n_coord
-                self.obstime = Time(time, scale='utc', format='iso')
-        else:
-            # Generate default obstimes based on number of coordinates
-            time = ['2030-06-01 09:00:00'] * self.n_coord
-            self.obstime = Time(time, scale='utc', format='iso')
+        if obstime is None: obstime = self.default_obstime
+        self.set_obstime(obstime, regen=False)
         
-        if telescope is not None:
-            if not isinstance(telescope, uvex.UVEX):
-                raise ValueError("Telescope must be a `UVEX` object.")
-            self.telescope = telescope
-        else:
-            # Initialize a UVEX object with default parameters
-            self.telescope = uvex.UVEX()
+        if telescope is None: telescope = uvex.UVEX()
+        self.set_telescope(telescope, regen=False)
         
         # Initialize source and background count rates
         self.source_count_rate = {}
@@ -280,7 +241,8 @@ class ETC():
         """
         Get the limiting magnitude at a certain location and time for given SNR and exposure
         
-        Does not require any source information to be loaded
+        Does not require any source information to be loaded - length of output will be relative
+        to length of coord/obstime, not number of sources
 
         Parameters
         ----------
@@ -313,11 +275,11 @@ class ETC():
         
         if n_dwells is not None:
             if band == 'nuv':
-                exptime = self.nuv_exposure
+                exposure = self.nuv_exposure
                 n_frames = self.n_nuv * n_dwells
                 bandpass = self.telescope.nuv_bandpass
             elif band == 'fuv':
-                exptime = self.fuv_exposure
+                exposure = self.fuv_exposure
                 n_frames = self.n_fuv * n_dwells
                 bandpass = self.telescope.fuv_bandpass
         else:
@@ -342,7 +304,7 @@ class ETC():
         
         # Get the required source rate per exposure
         per_exp_snr = snr/np.sqrt(n_frames)
-        req_rate = self._req_source(per_exp_snr, exptime.to(u.s).value,
+        req_rate = self._req_source(per_exp_snr, exposure.to(u.s).value,
                                     self.background_count_rate[band].value + dark_current,
                                     read_noise, npix)
         ratio = req_rate / ref_rate
@@ -353,10 +315,8 @@ class ETC():
     
     def get_exposure(self, snr=5., band='nuv'):
         """
-        Get the required exposure time to detect point source to a given SNR
-        
-        Returns both an exposure time for a single observation and the number of
-        standard dwells required to stack to reach the required SNR
+        Get the required exposure time in a single observation to detect a
+        point source to a given SNR
 
         Parameters
         ----------
@@ -370,18 +330,11 @@ class ETC():
         -------
         exptime : float array
             The required exposure time in seconds for each source
-        
-        n_dwells : int
-            The required number of standard dwells for each source
         """
         # Determine inputs
         band = band.lower()
         if not ((band == 'nuv') | (band == 'fuv')):
             raise ValueError(f"band must be 'nuv' or 'fuv'; got {band}")
-        if band == 'nuv':
-            exposure = self.nuv_exposure
-        elif band == 'fuv':
-            exposure = self.fuv_exposure
         
         # Load appropriate read noise and dark current from telescope
         dark_current = self.telescope.DARK_CURRENT[band].value
@@ -397,6 +350,40 @@ class ETC():
                                       self.background_count_rate[band].value + dark_current,
                                       read_noise, npix)
         
+        return exptime
+
+    def get_dwells(self, snr=5., band='nuv'):
+        """
+        Get the required number of standard observing dwells to detect a
+        point source to a given SNR
+
+        Parameters
+        ----------
+        snr : float
+            Desired signal-to-noise ratio
+        
+        band : 'nuv' or 'fuv'
+            The UVEX band in which to calculate exposure time/dwells
+        
+        Returns
+        -------
+        n_dwells : int array
+            The required number of dwells for each source
+        """
+        # Determine inputs
+        band = band.lower()
+        if not ((band == 'nuv') | (band == 'fuv')):
+            raise ValueError(f"band must be 'nuv' or 'fuv'; got {band}")
+        if band == 'nuv':
+            exposure = self.nuv_exposure
+        elif band == 'fuv':
+            exposure = self.fuv_exposure
+        
+        # Load appropriate read noise and dark current from telescope
+        dark_current = self.telescope.DARK_CURRENT[band].value
+        read_noise = self.telescope.READ_NOISE[band].value
+        npix = self.telescope.NPIX
+        
         # Get the required number of standard dwells
         snr_per_frame = self.get_snr(exposure, n_frames=1, band=band)
         n_frames = np.ceil((snr / snr_per_frame)**2)
@@ -406,16 +393,139 @@ class ETC():
         else:
             n_dwells = np.ceil(n_frames / 3)
         
-        return exptime, n_dwells
-
-
-
+        return n_dwells
     
-    # TODO: more ETC calculations
-    # Get exposure time and/or number of dwells (for given SNR)
     
-    # TODO: setters for ETC setup (reset source/bg rates as required)
-    # Set source (reset source and background count rates)
-    # Set obstime (reset background count rates)
-    # Set coords (reset background count rates)
-    # Set telescope (reset source and background count rates)
+    def set_source(self, source, regen=True):
+        '''
+        Setter for input source
+        
+        Parameters
+        ----------
+        source : Quantity or SourceSpectrum
+            Can be source magnitude/flux as Quantity or a synphot SourceSpectrum object
+        
+        regen : bool
+            Whether to immediately regenerate source and background count rates
+            Defaults to True; only False in case of ETC initialization
+        '''
+        if isinstance(source, u.quantity.Quantity):
+            # Source is provided as a quantity - treat as a flat spectrum
+            # TODO: Add capacity to generate a range of spectrum types for given magnitudes
+            if source.size == 1:
+                self.source = [SourceSpectrum(ConstFlux1D, amplitude=source)]
+                self.n_source = 1
+            else:
+                self.source = [SourceSpectrum(ConstFlux1D, amplitude=s) for s in source]
+                self.n_source = len(source)
+                # Check against coord and obstime - if number of sources provided is different
+                # to a pre-existing number of coord or obstime > 1, warn and reset coord and obstime to defaults
+                if (self.n_coord > 1) and (self.n_coord != self.n_source):
+                    warnings.warn("Incompatible number of coordinates for this number of sources; resetting to default coordinates")
+                    self.set_coord(self.default_coord, regen=False)
+                if (self.n_obstime > 1) and (self.n_obstime != self.n_source):
+                    warnings.warn("Incompatible number of obs times for this number of sources; resetting to default obs times")
+                    self.set_obstime(self.default_obstime, regen=False)
+            self.source_info = f'Constant spectrum at {source:.2f}'
+        elif isinstance(source, SourceSpectrum):
+            # Directly assign the spectrum
+            self.source = [source]
+            self.n_source = 1
+            self.source_info = 'User-defined spectrum'
+        elif isinstance(source, list) | isinstance(source, np.ndarray):
+            if isinstance(source[0], SourceSpectrum):
+                # Directly assign list/array of spectra
+                self.source = source
+                self.n_source = len(source)
+                # Check against coord and obstime - if number of sources provided is different
+                # to a pre-existing number of coord or obstime > 1, warn and reset coord and obstime to defaults
+                if (self.n_coord > 1) and (self.n_coord != self.n_source):
+                    warnings.warn("Incompatible number of coordinates for this number of sources; resetting to default coordinates")
+                    self.set_coord(self.default_coord, regen=False)
+                if (self.n_obstime > 1) and (self.n_obstime != self.n_source):
+                    warnings.warn("Incompatible number of obs times for this number of sources; resetting to default obs times")
+                    self.set_obstime(self.default_obstime, regen=False)
+            self.source_info = 'User-defined spectra'
+        else:
+            raise ValueError("Source must be a flux Quantity or synphot SourceSpectrum (or list thereof)")
+        
+        if regen:
+            # Regenerate source and background count rates
+            self._calc_source_count_rate()
+            self._calc_background_count_rate()
+    
+    def set_coord(self, coordinate, regen=True):
+        '''
+        Setter for source coordinates
+        
+        Parameters
+        ----------
+        coordinate : SkyCoord
+            Source coordinates as SkyCoord object
+        
+        regen : bool
+            Whether to immediately regenerate background count rates
+            Defaults to True; only False in case of ETC initialization
+        '''
+        if not isinstance(coordinate, SkyCoord):
+            raise ValueError("Coordinate must be a `SkyCoord` object.")
+        if (coordinate.size > 1) & (self.n_source > 1):
+            if coordinate.size != self.n_source:
+                raise ValueError("Length of coordinate must be 1 or equal to number of sources.")
+        if (coordinate.size > 1) & (self.n_obstime > 1):
+            if coordinate.size != self.n_source:
+                raise ValueError("Length of coordinate must be 1 or equal to number of obs times.")
+        self.coord = coordinate
+        self.n_coord = coordinate.size
+        
+        if regen:
+            # Regenerate background count rates
+            self._calc_background_count_rate()
+    
+    def set_obstime(self, obstime, regen=True):
+        '''
+        Setter for observation times
+        
+        Parameters
+        ----------
+        obstime : Time
+            Time of observation for each source
+        
+        regen : bool
+            Whether to immediately regenerate background count rates
+            Defaults to True; only False in case of ETC initialization
+        '''
+        if not isinstance(obstime, Time):
+            raise ValueError("Obstime must be a `Time` object.")
+        if (obstime.size > 1) & (self.n_source > 1) & (obstime.size != self.n_source):
+            raise ValueError("Length of obstime must be 1 or equal to number of sources.")
+        if (obstime.size > 1) & (self.n_coord > 1) & (obstime.size != self.n_coord):
+            raise ValueError("Length of obstime must be 1 or equal to number of coordinates.")
+        self.obstime = obstime
+        self.n_obstime = self.obstime.size
+            
+        if regen:
+            # Regenerate background count rates
+            self._calc_background_count_rate()
+    
+    def set_telescope(self, telescope, regen=True):
+        '''
+        Setter for UVEX telescope configuration
+        
+        Parameters
+        ----------
+        telescope : UVEX
+            UVEX configuration object
+        
+        regen : bool
+            Whether to immediately regenerate source and background count rates
+            Defaults to True; only False in case of ETC initialization
+        '''
+        if not isinstance(telescope, uvex.UVEX):
+            raise ValueError("Telescope must be a `UVEX` object.")
+        self.telescope = telescope
+    
+        if regen:
+            # Regenerate source and background count rates
+            self._calc_source_count_rate()
+            self._calc_background_count_rate()
