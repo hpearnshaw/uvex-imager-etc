@@ -62,20 +62,24 @@ class ETC():
                 else:
                     self.source = [SourceSpectrum(ConstFlux1D, amplitude=s) for s in source]
                     self.n_source = len(source)
+                self.source_info = f'Constant spectrum at {source:.2f}'
             elif isinstance(source, SourceSpectrum):
                 # Directly assign the spectrum
                 self.source = [source]
                 self.n_source = 1
+                self.source_info = 'User-defined spectrum'
             elif isinstance(source, list) | isinstance(source, np.ndarray):
                 if isinstance(source[0], SourceSpectrum):
                     # Directly assign list/array of spectra
                     self.source = source
                     self.n_source = len(source)
+                self.source_info = 'User-defined spectra'
             else:
                 raise ValueError("Source must be a flux Quantity or synphot SourceSpectrum (or list thereof)")
         else:
             # No need to define a source for limiting magnitude calculations
             self.source = None
+            self.source_info = 'None'
         
         # Set source locations (used for calculating background)
         if coordinate is not None:
@@ -128,7 +132,7 @@ class ETC():
             Returns current information about ETC setup
         '''
         print(f'UVEX version: {self.telescope.get_caldb()}')
-        print(f'Source: SOMETHING ABOUT SOURCE TYPE HERE')
+        print(f'Source: {self.source_info}')
         print(f'Source position: {self.coord}')
         print(f'Observation time: {self.obstime}')
     
@@ -160,7 +164,6 @@ class ETC():
 
         Parameters
         -----------
-
         k : float
             Desired SNR
         exposure: float
@@ -175,10 +178,38 @@ class ETC():
         c = neff * k**2 * (read_noise**2 + exposure*(bgd_rate))
         source =  (k**2 + np.sqrt(k**4 + 4*c))/ (2*exposure)
         return source * u.ct / u.s
+        
+        
+    def _calc_exposure(self, k, src_rate, bgd_rate, read_noise, neff):
+        """
+        Compute the time to get to a given significance (k) given the source rate,
+        the background rate, the read noise, and the number
+        of effective background pixels. Inversion of the standard CCD SNR equation.
+        
+        Parameters
+        -----------
+        k : float
+            Desired SNR
+        src_rate : float
+            Source count rate
+        bgd_rate : float
+            Combined sky and dark current
+        read_noise : float
+            Read noise per pixel
+        neff : float
+            Effective number of pixels
+        """
+        denom = 2 * src_rate**2
+
+        nom1 = (k**2) * (src_rate + neff*bgd_rate)
+        nom2 = ( k**4 *(src_rate + neff*bgd_rate)**2 +
+                        4 * k**2 * src_rate**2 * neff * read_noise**2)**(0.5)
+        exposure = (nom1 + nom2) / denom
+        return exposure * u.s
 
     def get_snr(self, exptime=None, n_frames=None, n_dwells=None, band='nuv'):
         """
-        Calculate the SNR of an observation of a point source with UVEX.
+        Calculate the SNR of an observation of a source with UVEX.
 
         Parameters
         ----------
@@ -198,7 +229,7 @@ class ETC():
         
         Returns
         -------
-        float
+        float array
             The signal to noise ratio
         """
         # Determine inputs
@@ -266,11 +297,11 @@ class ETC():
             Dwells are defined using ETC properties
         
         band : 'nuv' or 'fuv'
-            The UVEX band in which to calculate SNR
+            The UVEX band in which to calculate limiting magnitude
         
         Returns
         -------
-        float
+        float array
             The limiting magnitude for each position
         """
         # Determine inputs
@@ -317,6 +348,66 @@ class ETC():
         
         return m_limit
     
+    
+    def get_exposure(self, snr=5., band='nuv'):
+        """
+        Get the required exposure time to detect point source to a given SNR
+        
+        Returns both an exposure time for a single observation and the number of
+        standard dwells required to stack to reach the required SNR
+
+        Parameters
+        ----------
+        snr : float
+            Desired signal-to-noise ratio
+        
+        band : 'nuv' or 'fuv'
+            The UVEX band in which to calculate exposure time/dwells
+        
+        Returns
+        -------
+        exptime : float array
+            The required exposure time in seconds for each source
+        
+        n_dwells : int
+            The required number of standard dwells for each source
+        """
+        # Determine inputs
+        band = band.lower()
+        if not ((band == 'nuv') | (band == 'fuv')):
+            raise ValueError(f"band must be 'nuv' or 'fuv'; got {band}")
+        if band == 'nuv':
+            exposure = self.nuv_exposure
+        elif band == 'fuv':
+            exposure = self.fuv_exposure
+        
+        # Load appropriate read noise and dark current from telescope
+        dark_current = self.telescope.DARK_CURRENT[band].value
+        read_noise = self.telescope.READ_NOISE[band].value
+        npix = self.telescope.NPIX
+        
+        # Trigger generation of count rates if necessary
+        if band not in self.source_count_rate: self._calc_source_count_rate()
+        if band not in self.background_count_rate: self._calc_background_count_rate()
+        
+        # Get the required single-exposure time
+        exptime = self._calc_exposure(snr, self.source_count_rate[band].value,
+                                      self.background_count_rate[band].value + dark_current,
+                                      read_noise, npix)
+        
+        # Get the required number of standard dwells
+        snr_per_frame = self.get_snr(exposure, n_frames=1, band=band)
+        n_frames = np.ceil((snr / snr_per_frame)**2)
+        
+        if band == 'FUV':
+            n_dwells = n_frames
+        else:
+            n_dwells = np.ceil(n_frames / 3)
+        
+        return exptime, n_dwells
+
+
+
     
     # TODO: more ETC calculations
     # Get exposure time and/or number of dwells (for given SNR)
