@@ -258,7 +258,7 @@ def make_galactic_spec(uvex, lat, band):
     south = lat < -0*u.deg
     north = lat >= 0*u.deg
 
-    gal_flux = np.zeros(lat.size)
+    gal_flux = np.zeros(lat.shape)
     if band == 'fuv':
         gal_flux[north] = 93.4 + 133.2 / np.sin(np.abs(lat[north]))
         gal_flux[south] = -205.5 + 401.8 / np.sin(np.abs(lat[south]))
@@ -270,6 +270,7 @@ def make_galactic_spec(uvex, lat, band):
     
     # Convert to per-pixel units
     gal_flux = gal_flux.to(u.ph /(u.cm**2 * u.Angstrom * u.arcsec**2 * u.s)) * uvex.PIXEL
+    if gal_flux.size == 1: gal_flux = [gal_flux]
     
     return [SourceSpectrum(ConstFlux1D, amplitude=f) for f in gal_flux]
 
