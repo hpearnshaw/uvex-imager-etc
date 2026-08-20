@@ -5,11 +5,12 @@ Ultraviolet Explorer (UVEX) Imager Exposure Time Calculator
     :target: http://www.astropy.org
     :alt: Powered by Astropy Badge
 
-
 Overview
 --------
 
-This is the exposure time calculator for the UVEX imagers. WORK IN PROGRESS, NOT YET FUNCTIONAL
+This is the exposure time calculator for the UVEX imagers. Basic usage is demonstrated in notebooks/example.ipynb. It takes input sources, positions, and observation times, and performs various sensitivity calculations, such as required exposure times, limiting magnitudes, and signal-to-noise ratios.
+
+Telescope configuration is loaded from uvex_response.
 
 Dependencies
 ------------
@@ -46,15 +47,17 @@ that you're using conda.
 > conda activate uvex-etc
 ```
 
-Once this is complete, install a dev version of the UVEX ETC:
+Once this is complete, install the UVEX ETC:
 
 ```
-> pip install -e .
+> pip install .
 ```
 
-This should make uvex_imager_etc importable anywhere and you should be good to go.
+This should make uvex_imager_etc importable anywhere.
 
-ETCs and Notebooks
--------------------
+This UVEX ETC does not come pre-installed with the latest UVEX response curves as these are managed separately in uvex_response. To finish setting up the ETC, download the latest UVEX CALDB from [TBD] and place the unzipped, dated folder in uvex_imager_etc/response_files.
 
-Exposure time calculator examples are found in uvex-imager-etc/notebooks (coming soon)
+Example Usage
+-------------
+
+Exposure time calculator examples are found in uvex-imager-etc/notebooks/example.ipynb.
