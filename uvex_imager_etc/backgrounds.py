@@ -332,7 +332,7 @@ def load_zodi_spatial():
     return model
 
 
-def zodi_spec(uvex, scale = 77):
+def zodi_spec(uvex, scale = np.array([77])):
     """
     From here
     https://cads.iiap.res.in/tools/zodiacalCalc/Documentation
@@ -363,7 +363,7 @@ def zodi_spec(uvex, scale = 77):
     Optional Parameters
     -------------------
     scale : float
-        See above for definition. Default is 77 (suitabled for NEP)
+        See above for definition. Default is 77 (suitable for NEP)
 
     Returns
     -------
