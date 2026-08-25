@@ -43,3 +43,15 @@ include-package-data = true
 
 [tool.setuptools_scm]
 version_file = "uvex_imager_etc/_version.py"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+filterwarnings = [
+    # The package already suppresses Erfa's future date warnings
+    # at import time in __init__.py, but pytest's own warning-capture
+    # context can override that per-test, so it's suppressed here too
+    # for reliability.
+    "ignore::erfa.ErfaWarning",
+]
+ 

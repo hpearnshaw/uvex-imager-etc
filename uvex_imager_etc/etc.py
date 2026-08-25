@@ -403,7 +403,7 @@ class ETC():
         snr_per_frame = self.get_snr(exposure, n_frames=1, band=band)
         n_frames = np.ceil((snr / snr_per_frame)**2)
         
-        if band == 'FUV':
+        if band == 'fuv':
             n_dwells = n_frames
         else:
             n_dwells = np.ceil(n_frames / 3)

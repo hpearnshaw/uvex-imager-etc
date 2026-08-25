@@ -63,8 +63,6 @@ def make_nuv_background(uvex, coord, obstime, diag=False):
     received_cherenkov_nuv = uvex.nuv_cherenkov_bandpass(wave) * cherenkov_spectrum
     cherenkov_rate = received_cherenkov_nuv.sum() * u.ct
     
-    # TODO: Apply scattered light scaling
-    
     # Total NUV rate
     sky_nuv = zodi_rate + gal_rate + cherenkov_rate
 
@@ -131,9 +129,7 @@ def make_fuv_background(uvex, coord, obstime, diag=False):
     received_cherenkov_fuv = uvex.fuv_cherenkov_bandpass(wave) * cherenkov_spectrum
     cherenkov_rate = received_cherenkov_fuv.sum() * u.ct
     
-    # TODO: Apply scattered light scaling
-    
-    # Total NUV rate
+    # Total FUV rate
     sky_fuv = lya_rate + zodi_rate + gal_rate + cherenkov_rate
     
     if diag:
@@ -223,8 +219,11 @@ def make_lyman_spec(uvex, kr=None):
     ph_ergs = (h * c / mean).to(u.erg)
     
     R = kr*1e3 * 3.15e-17 * u.erg / u.cm**2 / u.s / u.arcsec**2
-    R_pixel = R * uvex.PIXEL * 1.5
+    R_pixel = R * uvex.PIXEL
     #ph_flux = R_pixel / (ph_ergs * 1*u.AA)
+    
+    # Apply scattered light scaling
+    R_pixel *= (1. + uvex.scattered_light_scaling_lya)
     
     return SourceSpectrum(GaussianFlux1D, mean=mean, fwhm=0.1*u.AA, total_flux=R_pixel)
 
@@ -258,7 +257,7 @@ def make_galactic_spec(uvex, lat, band):
     south = lat < -0*u.deg
     north = lat >= 0*u.deg
 
-    gal_flux = np.zeros(lat.size)
+    gal_flux = np.zeros(lat.shape)
     if band == 'fuv':
         gal_flux[north] = 93.4 + 133.2 / np.sin(np.abs(lat[north]))
         gal_flux[south] = -205.5 + 401.8 / np.sin(np.abs(lat[south]))
@@ -271,6 +270,10 @@ def make_galactic_spec(uvex, lat, band):
     # Convert to per-pixel units
     gal_flux = gal_flux.to(u.ph /(u.cm**2 * u.Angstrom * u.arcsec**2 * u.s)) * uvex.PIXEL
     
+    # Apply scattered light scaling
+    gal_flux *= (1. + uvex.scattered_light_scaling_galactic)
+    
+    if gal_flux.size == 1: gal_flux = [gal_flux]
     return [SourceSpectrum(ConstFlux1D, amplitude=f) for f in gal_flux]
 
 
@@ -307,10 +310,11 @@ def make_zodi_spec(uvex, coord, obstime):
     
     # Set Zodi scaling
     zodi_model = load_zodi_spatial()
-    scale = np.zeros(lat.size)
+    scale = np.zeros(lat.shape)
     scale[high_lat] = 72
     scale[low_lat] = scale[low_lat] = zodi_model(lat[low_lat], lon[low_lat])
 
+    if scale.size == 1: scale = [scale]
     return zodi_spec(uvex, scale=scale)
 
 
@@ -331,7 +335,7 @@ def load_zodi_spatial():
     return model
 
 
-def zodi_spec(uvex, scale = 77):
+def zodi_spec(uvex, scale = np.array([77])):
     """
     From here
     https://cads.iiap.res.in/tools/zodiacalCalc/Documentation
@@ -361,8 +365,8 @@ def zodi_spec(uvex, scale = 77):
     
     Optional Parameters
     -------------------
-    scale : float
-        See above for definition. Default is 77 (suitabled for NEP)
+    scale : array
+        See above for definition. Default is 77 (suitable for NEP)
 
     Returns
     -------
@@ -379,6 +383,9 @@ def zodi_spec(uvex, scale = 77):
 
     # Convert to per-pixel units
     flux = flux.to(u.ph /(u.cm**2 * u.Angstrom * u.arcsec**2 * u.s)) * uvex.PIXEL
+    
+    # Apply scattered light scaling
+    flux *= (1. + uvex.scattered_light_scaling_zodi)
 
     return [SourceSpectrum(Empirical1D, points=wave, lookup_table=f) for f in flux]
 

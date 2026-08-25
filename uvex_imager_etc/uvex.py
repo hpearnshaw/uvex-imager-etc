@@ -67,6 +67,11 @@ class UVEX():
 
         self.NPIX = 10.15 # Not currently in uvex_response
         
+        # Additional background scaling term not currently in uvex_response
+        self.scattered_light_scaling_lya = 0.5
+        self.scattered_light_scaling_zodi = 0.5
+        self.scattered_light_scaling_galactic = 0.5
+        
         # Ly-alpha background level in kR
         self.lya_kr = 2
         
