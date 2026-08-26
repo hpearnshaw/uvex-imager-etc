@@ -1,5 +1,5 @@
 '''
-    Contains utility functions to create default backgrounds
+    Contains utility functions to create sky backgrounds
     for the imaging channels
 '''
 import os
@@ -19,7 +19,7 @@ background_dir = os.path.join(os.path.dirname(__file__), 'background_data')
 def make_nuv_background(uvex, coord, obstime, diag=False):
     """
     Function to generate the standard total per-pixel background
-    for an NUV observation, incorporating Galactic and Zodi contributions
+    for an NUV observation, incorporating Galactic and Zodiacal contributions.
     
     Parameters
     ----------
@@ -30,7 +30,7 @@ def make_nuv_background(uvex, coord, obstime, diag=False):
         Coordinates for the observation
         
     obstime : Time
-        Survey observation time
+        Observation time
     
     Returns
     -------
@@ -81,7 +81,7 @@ def make_nuv_background(uvex, coord, obstime, diag=False):
 def make_fuv_background(uvex, coord, obstime, diag=False):
     """
     Function to generate the standard total background for a FUV observation,
-    incorporating Lyman-alpha, Galactic and Zodi contributions
+    incorporating Lyman-alpha, Galactic and Zodiacal contributions
     
     Parameters
     ----------
@@ -92,7 +92,7 @@ def make_fuv_background(uvex, coord, obstime, diag=False):
         Coordinates for the observation
         
     obstime : Time
-        Survey observation time
+        Observation time
     
     Returns
     -------
@@ -148,11 +148,13 @@ def make_fuv_background(uvex, coord, obstime, diag=False):
 
 def gen_cherenkov_spectrum(uvex, wave):
     """
-    Generates a Cherenkov spectrum. Many things are currently hard coded and will
+    Generates a Cherenkov spectrum.
+    
+    Many things are currently hard coded and will
     need to be revised later. The big one is the particle flux, which is currently
     pegged at 5 particles per cm2 per s.
     
-    TODO: Get hard-coded parameters from uvex_response?
+    TODO: Get hard-coded parameters from uvex_response
     
     Parameters
     ----------
@@ -206,7 +208,7 @@ def make_lyman_spec(uvex, kr=None):
         UVEX object containing telescope configuration
     
     kr : float
-        Default is kr=2, or 2e3 R of LyAlpha
+        Default is kr=2, or 2e3 R of LyAlpha.
         Set here to override default value
 
     Returns
@@ -337,6 +339,8 @@ def load_zodi_spatial():
 
 def zodi_spec(uvex, scale = np.array([77])):
     """
+    Creates an appropriately-scaled Zodiacal light spectrum
+    
     From here
     https://cads.iiap.res.in/tools/zodiacalCalc/Documentation
 
