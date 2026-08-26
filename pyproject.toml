@@ -20,7 +20,8 @@ dependencies = [
 "synphot",
 "matplotlib",
 "scipy",
-"jupyter"
+"jupyter",
+"erfa"
 ]
 dynamic = ["version"]
 
