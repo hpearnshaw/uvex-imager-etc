@@ -14,37 +14,23 @@ from . import backgrounds
 
 class ETC():
     '''
-        Class to hold ETC-related properties and operations
+        Class to hold ETC-related properties and perform ETC operations.
         
         Parameters
         ----------
         coordinate : SkyCoord
-            Source coordinates as SkyCoord object
-            Defaults to an 'average' location 15-deg out of Galactic Plane
+            Source coordinates as SkyCoord object.
+            Defaults to an 'average' location 15° out of Galactic Plane
         
         obstime : Time
-            Time of observation for each source
+            Time of observation for each source.
             Defaults to arbitrary time of 2030-06-01 09:00:00
         
         source : Quantity or SourceSpectrum
-            Source magnitude/flux as Quantity or a synphot SourceSpectrum object
-        
-        TODO: add a source_type option to generate a specific spectral shape
-        if source is provided as a magnitude (for now just a constant)
+            A flux Quantity (such as magnitude) or a synphot SourceSpectrum object
         
         telescope : UVEX
             UVEX object containing a particular telescope configuration
-        
-        Attributes
-        ----------
-        nuv_exposure : default exposure duration
-        fuv_exposure : default exposure duration
-        n_nuv : number of NUV frames in a dwell
-        n_fuv : number of FUV frames in a dwell
-        coord : SkyCoord object with coordinate list
-        n_coord : number of coordinates
-        obstime : Time object of observation time list
-        source : List of SourceSpectrum objects
     '''
     def __init__(self, source=None, coordinate=None, obstime=None, telescope=None):
         # Standard observing dwell definition
@@ -108,7 +94,7 @@ class ETC():
     
     def get_background_count_rate(self, band='nuv'):
         '''
-            Returns source count rate in given band
+            Returns background count rate in given band
         '''
         if band not in self.background_count_rate: self._calc_background_count_rate()
         return self.background_count_rate[band]
@@ -117,6 +103,9 @@ class ETC():
         '''
             Calculate and set the count rate for all sources
         '''
+        if self.source is None:
+            raise ValueError("No source defined. Please use set_source() to define the input source.")
+        
         nuv_rate, fuv_rate = np.array([]), np.array([])
         for s in self.source:
             # TODO: Make this more efficient
@@ -129,7 +118,7 @@ class ETC():
     
     def _calc_background_count_rate(self):
         '''
-            Calculate and set the background rate for all background locations and times
+            Calculate and set the background rate for all observation locations and times
         '''
         # Calculate backgrounds
         self.background_count_rate['nuv'] = backgrounds.make_nuv_background(self.telescope, self.coord, self.obstime)
@@ -194,12 +183,12 @@ class ETC():
             Exposure time
         
         n_frames : int
-            Number of exposures added together
+            Number of exposures to stack
             
         n_dwells : int
-            Sets exptime and n_frames to a specific number of dwells
-            exptime and n_frame inputs are ignored in this case
-            Dwells are defined using ETC properties
+            A specific number of standard UVEX survey dwells.
+            This automatically sets exptime and n_frames: exptime and n_frame inputs are ignored in this case.
+            Dwells are defined using ETC properties.
         
         band : 'nuv' or 'fuv'
             The UVEX band in which to calculate SNR
@@ -267,7 +256,7 @@ class ETC():
             Exposure time
         
         n_frames : int
-            Number of exposures added together
+            Number of exposures to stack
             
         n_dwells : int
             Sets exptime and n_frames to a specific number of dwells
@@ -279,8 +268,8 @@ class ETC():
         
         Returns
         -------
-        float array
-            The limiting magnitude for each position
+        m_limit : float array
+            The limiting magnitude for each position/observation time
         """
         # Determine inputs
         band = band.lower()
@@ -369,7 +358,7 @@ class ETC():
 
     def get_dwells(self, snr=5., band='nuv'):
         """
-        Get the required number of standard observing dwells to detect a
+        Get the required number of standard UVEX observing dwells to detect a
         point source to a given SNR
 
         Parameters
@@ -378,7 +367,7 @@ class ETC():
             Desired signal-to-noise ratio
         
         band : 'nuv' or 'fuv'
-            The UVEX band in which to calculate exposure time/dwells
+            The UVEX band in which to calculate the needed number of dwells
         
         Returns
         -------
@@ -413,16 +402,16 @@ class ETC():
     
     def set_source(self, source, regen=True):
         '''
-        Setter for input source
+        Setter for the input source
         
         Parameters
         ----------
         source : Quantity or SourceSpectrum
-            Can be source magnitude/flux as Quantity or a synphot SourceSpectrum object
+            A flux Quantity (such as magnitude) or a synphot SourceSpectrum object
         
         regen : bool
-            Whether to immediately regenerate source and background count rates
-            Defaults to True; only False in case of ETC initialization
+            Whether to immediately regenerate source and background count rates.
+            Defaults to True; only False in case of ETC initialization.
         '''
         if isinstance(source, u.quantity.Quantity):
             # Source is provided as a quantity - treat as a flat spectrum
@@ -507,7 +496,7 @@ class ETC():
             Time of observation for each source
         
         regen : bool
-            Whether to immediately regenerate background count rates
+            Whether to immediately regenerate background count rates.
             Defaults to True; only False in case of ETC initialization
         '''
         if not isinstance(obstime, Time):
@@ -533,7 +522,7 @@ class ETC():
             UVEX configuration object
         
         regen : bool
-            Whether to immediately regenerate source and background count rates
+            Whether to immediately regenerate source and background count rates.
             Defaults to True; only False in case of ETC initialization
         '''
         if not isinstance(telescope, uvex.UVEX):
