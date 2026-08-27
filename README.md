@@ -2,6 +2,7 @@ Ultraviolet Explorer (UVEX) Imager Exposure Time Calculator
 -----------------------------------------------------
 
 [![astropy](https://img.shields.io/badge/powered%20by-AstroPy-orange.svg?style=flat)](https://www.astropy.org/)
+[![uvex-imager-etc](https://readthedocs.org/projects/uvex-imager-etc/badge/?version=latest)](https://uvex-imager-etc.readthedocs.io/en/latest/?badge=latest)
 
 Overview
 --------
