@@ -6,7 +6,7 @@
 UVEX Imager ETC documentation
 =============================
 
-**The UVEX Imager ETC** is a simple exposure time calculator for the upcoming `Ultraviolet Explorer <https://uvex.caltech.edu>`_ mission. It analytically computes the predicted instrument performance for an observation of point sources using the UVEX imager. It is implemented in python and designed to interface with `Astropy <https://docs.astropy.org/en/stable/index.html>`_ and `synphot <https://synphot.readthedocs.io/en/latest/>`_. 
+**The UVEX Imager ETC** is a simple exposure time calculator for the upcoming `Ultraviolet Explorer <https://uvex.caltech.edu>`_ mission. It analytically computes the predicted instrument performance for observations of point sources using the UVEX imager. It is implemented in python and designed to interface with `Astropy <https://docs.astropy.org/en/stable/index.html>`_ and `synphot <https://synphot.readthedocs.io/en/latest/>`_. 
 
 A web interface for this tool is under constuction and will soon be made available on the UVEX SOC website, which will be linked here when it is ready.  
 

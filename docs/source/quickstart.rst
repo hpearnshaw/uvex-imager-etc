@@ -42,10 +42,10 @@ The :class:`~uvex_imager_etc.etc.ETC` has a number of functions that can be call
 .. code-block:: python
 
     snr_dwell = etc.get_snr(n_dwells=1, band="nuv")
-    print(f"NUV SNR in a single UVEX dwell: {snr_dwell:.2f}")
+    print(f"NUV SNR in a single UVEX dwell: {snr_dwell}")
 
     snr_obs = etc.get_snr(exptime=300 * u.s, n_frames=1, band="nuv")
-    print(f"NUV SNR in a single 300s frame: {snr_obs:.2f}")
+    print(f"NUV SNR in a single 300s frame: {snr_obs}")
 
 The reverse operation can be performed using :func:`~uvex_imager_etc.etc.get_dwells` to compute the number of dwells needed to reach the required depth, or :func:`~uvex_imager_etc.etc.get_exposure` to get the exposure time of a single observation. 
 
@@ -55,7 +55,7 @@ The reverse operation can be performed using :func:`~uvex_imager_etc.etc.get_dwe
     print(f"Number of dwells needed for SNR=20 in FUV: {dwells}")
 
     exptime = etc.get_exposure(snr=5, band="fuv")
-    print(f"FUV exposure needed for SNR=5: {exptime:.1f}")
+    print(f"FUV exposure needed for SNR=5: {exptime}")
 
 At a given location and time, :func:`~uvex_imager_etc.etc.limiting_mag` can be used to find the limiting magnitude at a given SNR for a certain number of dwells or exposure time. An input source is not required for this function, although it is for the above functions. 
 
@@ -65,7 +65,7 @@ At a given location and time, :func:`~uvex_imager_etc.etc.limiting_mag` can be u
     print(f"FUV limiting magnitude for SNR=5 after 2 dwells: {lim_mag_dwells}")
 
     lim_mag_exptime = etc.get_limiting_mag(snr=10, exptime=300*u.s, n_frames=6, band='nuv')
-    print(f"NUV limiting magnitude for SNR=10 after 6 x 300s frames: {exptime:.1f}")
+    print(f"NUV limiting magnitude for SNR=10 after 6 x 300s frames: {exptime}")
 
 Multiple coordinates, observation times, and sources can be passed to the ETC at once. If any one of these properties has length 1, the same value will be used for all calculations. However, for any containing multiple entries, they must all have the same length so it is unambiguous which should be grouped together. For example, a single source object could be observed at three coordinates and three observation times (and three results will be provided by the above functions).
 
