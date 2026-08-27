@@ -26,6 +26,7 @@ extensions = [
     'sphinx.ext.intersphinx',
     'sphinx.ext.viewcode',
     'sphinx_automodapi.automodapi',
+    'sphinx_automodapi.smart_resolver'
 ]
 autosummary_generate = True
 numpydoc_show_class_members = False
