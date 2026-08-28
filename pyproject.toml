@@ -42,7 +42,6 @@ include-package-data = true
 [tool.setuptools.packages.find]
 
 [tool.setuptools_scm]
-version_file = "uvex_imager_etc/_version.py"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
