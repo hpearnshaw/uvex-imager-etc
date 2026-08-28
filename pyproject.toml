@@ -18,9 +18,7 @@ dependencies = [
 "numpy",
 "astropy",
 "synphot",
-"matplotlib",
 "scipy",
-"jupyter"
 ]
 dynamic = ["version"]
 
