@@ -473,11 +473,9 @@ class ETC():
         '''
         if not isinstance(coordinate, SkyCoord):
             raise ValueError("Coordinate must be a `SkyCoord` object.")
-        if (coordinate.size > 1) & (self.n_source > 1):
-            if coordinate.size != self.n_source:
+        if coordinate.size > 1 and self.n_source > 1 and coordinate.size != self.n_source:
                 raise ValueError("Length of coordinate must be 1 or equal to number of sources.")
-        if (coordinate.size > 1) & (self.n_obstime > 1):
-            if coordinate.size != self.n_source:
+        if coordinate.size > 1 and self.n_obstime > 1 and coordinate.size != self.n_source:
                 raise ValueError("Length of coordinate must be 1 or equal to number of obs times.")
         self.coord = coordinate
         self.n_coord = coordinate.size
@@ -501,9 +499,9 @@ class ETC():
         '''
         if not isinstance(obstime, Time):
             raise ValueError("Obstime must be a `Time` object.")
-        if (obstime.size > 1) & (self.n_source > 1) & (obstime.size != self.n_source):
+        if obstime.size > 1 and self.n_source > 1 and obstime.size != self.n_source:
             raise ValueError("Length of obstime must be 1 or equal to number of sources.")
-        if (obstime.size > 1) & (self.n_coord > 1) & (obstime.size != self.n_coord):
+        if obstime.size > 1 and self.n_coord > 1 and obstime.size != self.n_coord:
             raise ValueError("Length of obstime must be 1 or equal to number of coordinates.")
         self.obstime = obstime
         self.n_obstime = self.obstime.size
