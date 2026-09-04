@@ -65,7 +65,7 @@ class UVEX():
             'fuv': self.config['dark_current']['fuv']['value'] * u.electron / u.s,
         }
 
-        self.NPIX = 10.15 # Not currently in uvex_response
+        self.NPIX = self.config['npix_img']['value'] # Not currently in uvex_response
         
         # Additional background scaling term not currently in uvex_response
         self.scattered_light_scaling_lya = 0.5
