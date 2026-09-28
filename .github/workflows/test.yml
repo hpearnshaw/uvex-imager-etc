@@ -28,7 +28,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install pytest
           pip install .
-          # Needs CALDB first. Figure this out!
+
+      - name: Download CALDB
+        run: |
+          curl -L "https://www.uvex.caltech.edu/system/media_files/binaries/42/original/20260924_v0.1e.zip?1790365459" -o ./uvex_imager_etc/response_files/20260924_v0.1e.zip 
+          unzip ./uvex_imager_etc/response_files/20260924_v0.1e.zip 
 
       - name: Run Pytest
         run: pytest
