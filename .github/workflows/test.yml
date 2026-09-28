@@ -31,8 +31,8 @@ jobs:
 
       - name: Download CALDB
         run: |
-          curl -L "https://www.uvex.caltech.edu/system/media_files/binaries/42/original/20260924_v0.1e.zip?1790365459" -o ./uvex_imager_etc/response_files/20260924_v0.1e.zip 
-          unzip ./uvex_imager_etc/response_files/20260924_v0.1e.zip -d ./uvex_imager_etc/response_files/20260924_v0.1e
+          curl -L "https://www.uvex.caltech.edu/system/media_files/binaries/42/original/20260924_v0.1e.zip?1790639225" -o ./uvex_imager_etc/response_files/20260924_v0.1e.zip 
+          unzip ./uvex_imager_etc/response_files/20260924_v0.1e.zip -d ./uvex_imager_etc/response_files
 
       - name: Run Pytest
         run: pytest
