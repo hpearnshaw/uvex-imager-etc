@@ -27,4 +27,9 @@ The UVEX ETC does not come pre-installed with the latest UVEX response curves as
 
    install_uvex_etc_caldb path/to/caldb/folder
 
-The ETC will automatically use the most recent dated and versioned CALDB folder it can find in response_files, though a specific release can be referenced by its folder name should you need to reproduce past results. Please check the website for updates before starting work.
+The ETC will automatically use the most recent dated and versioned CALDB folder it can find in response_files, though a specific release can be referenced by its folder name should you need to reproduce past results. Please check the website for updates before starting work. You can get a list of CALDBs that have been installed using:
+
+.. code-block:: bash
+
+   list_installed_uvex_etc_caldbs
+

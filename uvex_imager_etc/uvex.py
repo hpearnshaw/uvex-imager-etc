@@ -131,3 +131,15 @@ def install_uvex_etc_caldb():
     # Copy folder across to response_files
     shutil.copytree(caldb_dir, os.path.join(response_files_dir, os.path.basename(caldb_dir)), dirs_exist_ok=True)
     print(f"Installed CALDB {caldb_dir} in UVEX imager ETC")
+
+def list_installed_caldbs():
+    '''
+    Lists the CALDBs currently installed in the UVEX imager ETC
+    '''
+    # Check for existence of CALDBs
+    avail_caldb = np.array([f for f in os.listdir(response_files_dir) 
+                            if (os.path.isdir(os.path.join(response_files_dir, f)) and f.startswith('2'))])
+    if len(avail_caldb) == 0:
+        print(f"No available CALDBs in {response_files_dir}. Please install a CALDB using install_uvex_caldb.")
+    else:
+        print(f"Available CALDBs: \n - {'\n - '.join(avail_caldb)}")
